@@ -11,7 +11,8 @@
       {
         "origin": "https://n"
       }
-    ]
+    ],
+    "expo-sqlite"
   ],
   "name": "LePhanQuocDai_22003015_THCK",
   "slug": "LePhanQuocDai_22003015_THCK"
