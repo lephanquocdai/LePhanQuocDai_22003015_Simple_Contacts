@@ -1,0 +1,51 @@
+EAS Preview Link - Simple Contacts App
+========================================
+
+Project Info:
+- Account: lephanquocdai
+- Project ID: 392041ec-f577-4170-8911-f597158a0c88
+- Project URL: https://expo.dev/accounts/lephanquocdai/projects/LePhanQuocDai_22003015_THCK
+
+Android Preview Link:
+[Thay link preview Android tại đây sau khi build xong]
+
+iOS Preview Link:
+[Thay link preview iOS tại đây sau khi build xong]
+
+========================================
+Hướng dẫn build iOS preview:
+
+⚠️ LƯU Ý: Build iOS yêu cầu Apple Developer Account (trả phí $99/năm)
+Nếu chưa có, bạn có thể:
+- Build Android thay vì iOS (miễn phí)
+- Hoặc đăng ký Apple Developer tại: https://developer.apple.com/register/
+
+Nếu đã có Apple Developer Account:
+1. Chạy lệnh: eas build --profile preview --platform ios
+2. Đăng nhập với Apple ID đã đăng ký developer
+3. Theo dõi build progress tại:
+   https://expo.dev/accounts/lephanquocdai/projects/LePhanQuocDai_22003015_THCK/builds
+
+========================================
+Hướng dẫn build Android preview (MIỄN PHÍ):
+
+1. Chạy lệnh trong terminal:
+   eas build --profile preview --platform android
+
+2. Khi được hỏi về Android application id, nhập:
+   com.lephanquocdai.simplecontacts
+   (hoặc nhấn Enter để dùng giá trị mặc định từ app.json)
+
+3. Khi được hỏi về keystore, chọn:
+   - "Generate a new Android Keystore" (nếu lần đầu build)
+   - Hoặc "Use existing keystore" (nếu đã có)
+
+4. Theo dõi build progress tại:
+   https://expo.dev/accounts/lephanquocdai/projects/LePhanQuocDai_22003015_THCK/builds
+
+5. Sau khi build xong (có thể mất 10-20 phút), copy link preview và cập nhật file này
+
+Lưu ý: 
+- Build Android preview sẽ tạo file .apk có thể cài đặt trên thiết bị Android
+- Lần đầu build sẽ mất thời gian tạo keystore (khoảng 1-2 phút)
+

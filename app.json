@@ -1,19 +1,38 @@
 {
-  "scheme": "acme",
-  "userInterfaceStyle": "automatic",
-  "orientation": "default",
-  "web": {
-    "output": "static"
-  },
-  "plugins": [
-    [
-      "expo-router",
-      {
-        "origin": "https://n"
+  "expo": {
+    "name": "LePhanQuocDai_22003015_THCK",
+    "slug": "LePhanQuocDai_22003015_THCK",
+    "scheme": "acme",
+    "userInterfaceStyle": "automatic",
+    "orientation": "default",
+    "ios": {
+      "bundleIdentifier": "com.lephanquocdai.simplecontacts",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
       }
+    },
+    "android": {
+      "package": "com.lephanquocdai.simplecontacts"
+    },
+    "web": {
+      "output": "static"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://n"
+        }
+      ],
+      "expo-sqlite"
     ],
-    "expo-sqlite"
-  ],
-  "name": "LePhanQuocDai_22003015_THCK",
-  "slug": "LePhanQuocDai_22003015_THCK"
+    "extra": {
+      "router": {
+        "origin": "https://n"
+      },
+      "eas": {
+        "projectId": "392041ec-f577-4170-8911-f597158a0c88"
+      }
+    }
+  }
 }
