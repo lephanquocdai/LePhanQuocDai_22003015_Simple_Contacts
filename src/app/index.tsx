@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Text, View, FlatList, Modal, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, ScrollView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getAllContacts, Contact, addContact, toggleFavorite, updateContact, deleteContact } from "../db";
@@ -13,12 +13,10 @@ export default function Page() {
   const [editFormData, setEditFormData] = useState({ name: "", phone: "", email: "" });
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const [editErrors, setEditErrors] = useState<{ name?: string; email?: string }>({});
+  const [searchText, setSearchText] = useState("");
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  useEffect(() => {
-    loadContacts();
-  }, []);
-
-  const loadContacts = async () => {
+  const loadContacts = useCallback(async () => {
     try {
       const data = await getAllContacts();
       setContacts(data);
@@ -27,7 +25,33 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
+
+  // Filter contacts dựa trên search text và favorite filter
+  const filteredContacts = useMemo(() => {
+    let filtered = contacts;
+
+    // Filter theo favorite nếu bật
+    if (showFavoritesOnly) {
+      filtered = filtered.filter((contact) => contact.favorite === 1);
+    }
+
+    // Filter theo search text (name hoặc phone)
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase().trim();
+      filtered = filtered.filter((contact) => {
+        const nameMatch = contact.name.toLowerCase().includes(searchLower);
+        const phoneMatch = contact.phone?.toLowerCase().includes(searchLower) || false;
+        return nameMatch || phoneMatch;
+      });
+    }
+
+    return filtered;
+  }, [contacts, searchText, showFavoritesOnly]);
 
 
   const validateForm = (data: { name: string; email: string }, isEdit: boolean = false): boolean => {
@@ -175,7 +199,19 @@ export default function Page() {
     );
   };
 
-  const renderContactItem = ({ item }: { item: Contact }) => {
+  const handleOpenEditCallback = useCallback((contact: Contact) => {
+    handleOpenEdit(contact);
+  }, []);
+
+  const handleDeleteContactCallback = useCallback((contact: Contact) => {
+    handleDeleteContact(contact);
+  }, []);
+
+  const handleToggleFavoriteCallback = useCallback((id: number) => {
+    handleToggleFavorite(id);
+  }, []);
+
+  const renderContactItem = useCallback(({ item }: { item: Contact }) => {
     return (
       <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
         <View className="flex-1">
@@ -188,21 +224,21 @@ export default function Page() {
         </View>
         <View className="flex-row items-center">
           <TouchableOpacity
-            onPress={() => handleOpenEdit(item)}
+            onPress={() => handleOpenEditCallback(item)}
             className="mr-2 px-3 py-1 bg-blue-500 rounded"
             activeOpacity={0.7}
           >
             <Text className="text-white text-sm font-medium">Sửa</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => handleDeleteContact(item)}
+            onPress={() => handleDeleteContactCallback(item)}
             className="mr-2 px-3 py-1 bg-red-500 rounded"
             activeOpacity={0.7}
           >
             <Text className="text-white text-sm font-medium">Xóa</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => handleToggleFavorite(item.id)}
+            onPress={() => handleToggleFavoriteCallback(item.id)}
             className="ml-2 p-2"
             activeOpacity={0.7}
           >
@@ -213,23 +249,70 @@ export default function Page() {
         </View>
       </View>
     );
-  };
+  }, [handleOpenEditCallback, handleDeleteContactCallback, handleToggleFavoriteCallback]);
 
   return (
     <View className="flex flex-1 bg-white">
       <Header onAddPress={() => setModalVisible(true)} />
+      
+      {/* Search Bar và Filter */}
+      <View className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+        <View className="mb-2">
+          <Text className="text-gray-700 mb-2 font-medium">Tìm kiếm:</Text>
+          <View className="flex-row items-center">
+            <View className="flex-1 mr-2">
+              <TextInput
+                className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-base"
+                placeholder="Tìm kiếm theo tên hoặc số điện thoại..."
+                value={searchText}
+                onChangeText={setSearchText}
+                autoCapitalize="none"
+              />
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`px-4 py-2 rounded-lg ${
+                showFavoritesOnly ? "bg-yellow-500" : "bg-gray-300"
+              }`}
+              activeOpacity={0.7}
+            >
+              <Text className={`text-sm font-medium ${
+                showFavoritesOnly ? "text-white" : "text-gray-700"
+              }`}>
+                ★
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {(searchText.trim() || showFavoritesOnly) && (
+          <TouchableOpacity
+            onPress={() => {
+              setSearchText("");
+              setShowFavoritesOnly(false);
+            }}
+            className="self-start"
+          >
+            <Text className="text-blue-500 text-sm">Xóa bộ lọc</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <View className="flex-1">
         {loading ? (
           <View className="flex-1 items-center justify-center">
             <Text className="text-gray-500">Đang tải...</Text>
           </View>
-        ) : contacts.length === 0 ? (
+        ) : filteredContacts.length === 0 ? (
           <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500">Chưa có liên hệ nào.</Text>
+            <Text className="text-gray-500">
+              {contacts.length === 0
+                ? "Chưa có liên hệ nào."
+                : "Không tìm thấy liên hệ nào."}
+            </Text>
           </View>
         ) : (
           <FlatList
-            data={contacts}
+            data={filteredContacts}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderContactItem}
             contentContainerStyle={{ paddingVertical: 8 }}
