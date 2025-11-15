@@ -50,7 +50,7 @@ export default function Page() {
           </View>
         ) : contacts.length === 0 ? (
           <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500">Chưa có liên hệ nào</Text>
+            <Text className="text-gray-500">Chưa có liên hệ nào.</Text>
           </View>
         ) : (
           <FlatList
