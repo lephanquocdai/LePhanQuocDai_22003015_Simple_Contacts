@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { Text, View, FlatList, Modal, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, ScrollView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getAllContacts, Contact, addContact, toggleFavorite } from "../db";
+import { getAllContacts, Contact, addContact, toggleFavorite, updateContact } from "../db";
 
 export default function Page() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [formData, setFormData] = useState({ name: "", phone: "", email: "" });
+  const [editFormData, setEditFormData] = useState({ name: "", phone: "", email: "" });
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
+  const [editErrors, setEditErrors] = useState<{ name?: string; email?: string }>({});
 
   useEffect(() => {
     loadContacts();
@@ -25,25 +29,30 @@ export default function Page() {
     }
   };
 
-  const validateForm = (): boolean => {
+
+  const validateForm = (data: { name: string; email: string }, isEdit: boolean = false): boolean => {
     const newErrors: { name?: string; email?: string } = {};
     
     // Validate name: bắt buộc
-    if (!formData.name.trim()) {
+    if (!data.name.trim()) {
       newErrors.name = "Tên không được để trống";
     }
     
     // Validate email: nếu có thì phải có @
-    if (formData.email.trim() && !formData.email.includes("@")) {
+    if (data.email.trim() && !data.email.includes("@")) {
       newErrors.email = "Email phải chứa ký tự @";
     }
     
-    setErrors(newErrors);
+    if (isEdit) {
+      setEditErrors(newErrors);
+    } else {
+      setErrors(newErrors);
+    }
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) {
+    if (!validateForm(formData, false)) {
       return;
     }
 
@@ -66,6 +75,54 @@ export default function Page() {
       console.error("Error adding contact:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi thêm liên hệ.");
     }
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingContact) return;
+    
+    if (!validateForm(editFormData, true)) {
+      return;
+    }
+
+    try {
+      const success = await updateContact(
+        editingContact.id,
+        editFormData.name.trim(),
+        editFormData.phone.trim() || undefined,
+        editFormData.email.trim() || undefined
+      );
+
+      if (success) {
+        setEditModalVisible(false);
+        setEditingContact(null);
+        setEditFormData({ name: "", phone: "", email: "" });
+        setEditErrors({});
+        await loadContacts(); // Refresh danh sách
+      } else {
+        Alert.alert("Lỗi", "Không thể cập nhật liên hệ. Vui lòng thử lại.");
+      }
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi khi cập nhật liên hệ.");
+    }
+  };
+
+  const handleOpenEdit = (contact: Contact) => {
+    setEditingContact(contact);
+    setEditFormData({
+      name: contact.name,
+      phone: contact.phone || "",
+      email: contact.email || "",
+    });
+    setEditErrors({});
+    setEditModalVisible(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModalVisible(false);
+    setEditingContact(null);
+    setEditFormData({ name: "", phone: "", email: "" });
+    setEditErrors({});
   };
 
   const handleCloseModal = () => {
@@ -99,15 +156,24 @@ export default function Page() {
             <Text className="text-sm text-gray-600 mt-1">{item.phone}</Text>
           )}
         </View>
-        <TouchableOpacity
-          onPress={() => handleToggleFavorite(item.id)}
-          className="ml-2 p-2"
-          activeOpacity={0.7}
-        >
-          <Text className="text-yellow-500 text-2xl">
-            {item.favorite === 1 ? "★" : "☆"}
-          </Text>
-        </TouchableOpacity>
+        <View className="flex-row items-center">
+          <TouchableOpacity
+            onPress={() => handleOpenEdit(item)}
+            className="mr-2 px-3 py-1 bg-blue-500 rounded"
+            activeOpacity={0.7}
+          >
+            <Text className="text-white text-sm font-medium">Sửa</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleToggleFavorite(item.id)}
+            className="ml-2 p-2"
+            activeOpacity={0.7}
+          >
+            <Text className="text-yellow-500 text-2xl">
+              {item.favorite === 1 ? "★" : "☆"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -218,6 +284,98 @@ export default function Page() {
                   onPress={handleSubmit}
                 >
                   <Text className="text-white font-semibold text-base">Lưu</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseEditModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={handleCloseEditModal}
+            className="flex-1 bg-black/50 justify-end"
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              className="bg-white rounded-t-3xl"
+            >
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ padding: 24 }}
+              >
+                <View className="flex-row justify-between items-center mb-4">
+                  <Text className="text-2xl font-bold text-gray-900">Sửa liên hệ</Text>
+                  <TouchableOpacity onPress={handleCloseEditModal}>
+                    <Text className="text-gray-500 text-lg">✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View className="mb-4">
+                  <Text className="text-gray-700 mb-2 font-medium">
+                    Tên <Text className="text-red-500">*</Text>
+                  </Text>
+                  <TextInput
+                    className="border border-gray-300 rounded-lg px-4 py-3 text-base"
+                    placeholder="Nhập tên"
+                    value={editFormData.name}
+                    onChangeText={(text) => {
+                      setEditFormData({ ...editFormData, name: text });
+                      if (editErrors.name) setEditErrors({ ...editErrors, name: undefined });
+                    }}
+                  />
+                  {editErrors.name && (
+                    <Text className="text-red-500 text-sm mt-1">{editErrors.name}</Text>
+                  )}
+                </View>
+
+                <View className="mb-4">
+                  <Text className="text-gray-700 mb-2 font-medium">Số điện thoại</Text>
+                  <TextInput
+                    className="border border-gray-300 rounded-lg px-4 py-3 text-base"
+                    placeholder="Nhập số điện thoại"
+                    value={editFormData.phone}
+                    onChangeText={(text) => setEditFormData({ ...editFormData, phone: text })}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+
+                <View className="mb-6">
+                  <Text className="text-gray-700 mb-2 font-medium">Email</Text>
+                  <TextInput
+                    className="border border-gray-300 rounded-lg px-4 py-3 text-base"
+                    placeholder="Nhập email"
+                    value={editFormData.email}
+                    onChangeText={(text) => {
+                      setEditFormData({ ...editFormData, email: text });
+                      if (editErrors.email) setEditErrors({ ...editErrors, email: undefined });
+                    }}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                  {editErrors.email && (
+                    <Text className="text-red-500 text-sm mt-1">{editErrors.email}</Text>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  className="bg-blue-500 rounded-lg py-3 items-center"
+                  onPress={handleEditSubmit}
+                >
+                  <Text className="text-white font-semibold text-base">Cập nhật</Text>
                 </TouchableOpacity>
               </ScrollView>
             </TouchableOpacity>
