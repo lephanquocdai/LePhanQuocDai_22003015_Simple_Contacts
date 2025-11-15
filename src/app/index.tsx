@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Text, View, FlatList, Modal, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, ScrollView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getAllContacts, Contact, addContact } from "../db";
+import { getAllContacts, Contact, addContact, toggleFavorite } from "../db";
 
 export default function Page() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -74,6 +74,20 @@ export default function Page() {
     setErrors({});
   };
 
+  const handleToggleFavorite = async (id: number) => {
+    try {
+      const success = await toggleFavorite(id);
+      if (success) {
+        await loadContacts(); // Refresh danh sách
+      } else {
+        Alert.alert("Lỗi", "Không thể cập nhật yêu thích. Vui lòng thử lại.");
+      }
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi khi cập nhật yêu thích.");
+    }
+  };
+
   const renderContactItem = ({ item }: { item: Contact }) => {
     return (
       <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
@@ -85,9 +99,15 @@ export default function Page() {
             <Text className="text-sm text-gray-600 mt-1">{item.phone}</Text>
           )}
         </View>
-        {item.favorite === 1 && (
-          <Text className="text-yellow-500 text-xl ml-2">⭐</Text>
-        )}
+        <TouchableOpacity
+          onPress={() => handleToggleFavorite(item.id)}
+          className="ml-2 p-2"
+          activeOpacity={0.7}
+        >
+          <Text className="text-yellow-500 text-2xl">
+            {item.favorite === 1 ? "★" : "☆"}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
