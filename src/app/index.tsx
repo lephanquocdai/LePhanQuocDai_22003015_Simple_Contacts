@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Text, View, FlatList, Modal, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, ScrollView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getAllContacts, Contact, addContact, toggleFavorite, updateContact } from "../db";
+import { getAllContacts, Contact, addContact, toggleFavorite, updateContact, deleteContact } from "../db";
 
 export default function Page() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -145,6 +145,36 @@ export default function Page() {
     }
   };
 
+  const handleDeleteContact = (contact: Contact) => {
+    Alert.alert(
+      "Xác nhận xóa",
+      `Bạn có chắc chắn muốn xóa liên hệ "${contact.name}"?`,
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const success = await deleteContact(contact.id);
+              if (success) {
+                await loadContacts(); // Refresh danh sách
+              } else {
+                Alert.alert("Lỗi", "Không thể xóa liên hệ. Vui lòng thử lại.");
+              }
+            } catch (error) {
+              console.error("Error deleting contact:", error);
+              Alert.alert("Lỗi", "Đã xảy ra lỗi khi xóa liên hệ.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderContactItem = ({ item }: { item: Contact }) => {
     return (
       <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
@@ -163,6 +193,13 @@ export default function Page() {
             activeOpacity={0.7}
           >
             <Text className="text-white text-sm font-medium">Sửa</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleDeleteContact(item)}
+            className="mr-2 px-3 py-1 bg-red-500 rounded"
+            activeOpacity={0.7}
+          >
+            <Text className="text-white text-sm font-medium">Xóa</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleToggleFavorite(item.id)}
