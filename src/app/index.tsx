@@ -9,6 +9,8 @@ export default function Page() {
     contacts,
     filteredContacts,
     loading,
+    importLoading,
+    importError,
     searchText,
     setSearchText,
     showFavoritesOnly,
@@ -18,6 +20,7 @@ export default function Page() {
     update,
     remove,
     toggle,
+    importFromAPI,
   } = useContacts();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -27,6 +30,25 @@ export default function Page() {
   const [editFormData, setEditFormData] = useState({ name: "", phone: "", email: "" });
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const [editErrors, setEditErrors] = useState<{ name?: string; email?: string }>({});
+
+  // MockAPI URL - bạn có thể thay đổi URL này
+  const MOCKAPI_URL = "https://67da1f0735c87309f52b0841.mockapi.io/contacts";
+
+  const handleImportFromAPI = useCallback(async () => {
+    const result = await importFromAPI(MOCKAPI_URL);
+    
+    if (result.success) {
+      Alert.alert(
+        "Import thành công",
+        `Đã import ${result.imported} liên hệ.\n${result.skipped > 0 ? `Bỏ qua ${result.skipped} liên hệ trùng lặp.` : ""}`
+      );
+    } else {
+      Alert.alert(
+        "Import thất bại",
+        result.error || "Không thể import liên hệ từ API."
+      );
+    }
+  }, [importFromAPI]);
 
   useEffect(() => {
     load();
@@ -236,7 +258,18 @@ export default function Page() {
 
   return (
     <View className="flex flex-1 bg-white">
-      <Header onAddPress={() => setModalVisible(true)} />
+      <Header
+        onAddPress={() => setModalVisible(true)}
+        onImportPress={handleImportFromAPI}
+        importLoading={importLoading}
+      />
+      {importError && (
+        <View className="px-4 py-2 bg-red-50 border-b border-red-200">
+          <Text className="text-red-600 text-sm">
+            Lỗi import: {importError}
+          </Text>
+        </View>
+      )}
       
       {/* Search Bar và Filter */}
       <View className="px-4 py-3 bg-gray-50 border-b border-gray-200">
@@ -506,18 +539,40 @@ export default function Page() {
   );
 }
 
-function Header({ onAddPress }: { onAddPress: () => void }) {
+function Header({
+  onAddPress,
+  onImportPress,
+  importLoading,
+}: {
+  onAddPress: () => void;
+  onImportPress: () => void;
+  importLoading: boolean;
+}) {
   const { top } = useSafeAreaInsets();
   return (
     <View style={{ paddingTop: top }} className="bg-white border-b border-gray-200">
       <View className="px-4 lg:px-6 h-14 flex items-center flex-row justify-between">
         <Text className="font-bold text-xl text-gray-900">Danh sách liên hệ</Text>
-        <TouchableOpacity
-          onPress={onAddPress}
-          className="w-10 h-10 rounded-full bg-blue-500 items-center justify-center"
-        >
-          <Text className="text-white text-2xl font-bold">+</Text>
-        </TouchableOpacity>
+        <View className="flex-row items-center gap-2">
+          <TouchableOpacity
+            onPress={onImportPress}
+            disabled={importLoading}
+            className={`px-3 py-1.5 rounded-lg ${
+              importLoading ? "bg-gray-400" : "bg-green-500"
+            }`}
+            activeOpacity={0.7}
+          >
+            <Text className="text-white text-sm font-medium">
+              {importLoading ? "Đang import..." : "Import từ API"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onAddPress}
+            className="w-10 h-10 rounded-full bg-blue-500 items-center justify-center"
+          >
+            <Text className="text-white text-2xl font-bold">+</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );

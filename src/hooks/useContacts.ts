@@ -8,9 +8,17 @@ import {
   toggleFavorite,
 } from "../db";
 
+interface ApiContact {
+  name: string;
+  phone?: string;
+  email?: string;
+}
+
 export const useContacts = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
@@ -100,6 +108,88 @@ export const useContacts = () => {
     [load]
   );
 
+  // Import contacts from API
+  const importFromAPI = useCallback(
+    async (apiUrl: string) => {
+      try {
+        setImportLoading(true);
+        setImportError(null);
+
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const apiData: ApiContact[] = await response.json();
+
+        // Map và filter dữ liệu
+        const existingPhones = new Set(
+          contacts.map((c) => c.phone?.toLowerCase().trim()).filter(Boolean)
+        );
+
+        let importedCount = 0;
+        let skippedCount = 0;
+
+        for (const item of apiData) {
+          // Map dữ liệu: name → name, phone → phone, email → email
+          const name = item.name?.trim();
+          const phone = item.phone?.trim();
+          const email = item.email?.trim();
+
+          // Kiểm tra name bắt buộc
+          if (!name) {
+            skippedCount++;
+            continue;
+          }
+
+          // Kiểm tra trùng lặp theo phone (nếu có phone)
+          if (phone) {
+            const phoneLower = phone.toLowerCase();
+            if (existingPhones.has(phoneLower)) {
+              skippedCount++;
+              continue;
+            }
+            existingPhones.add(phoneLower);
+          }
+
+          // Insert contact
+          const result = await addContact(name, phone || undefined, email || undefined);
+          if (result) {
+            importedCount++;
+          } else {
+            skippedCount++;
+          }
+        }
+
+        // Reload contacts sau khi import
+        await load();
+
+        // Clear error nếu import thành công
+        setImportError(null);
+
+        return {
+          success: true,
+          imported: importedCount,
+          skipped: skippedCount,
+        };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Lỗi không xác định";
+        setImportError(errorMessage);
+        console.error("Error importing contacts:", error);
+        return {
+          success: false,
+          imported: 0,
+          skipped: 0,
+          error: errorMessage,
+        };
+      } finally {
+        setImportLoading(false);
+      }
+    },
+    [contacts, load]
+  );
+
   // Search contacts (client-side filtering)
   const filteredContacts = useMemo(() => {
     let filtered = contacts;
@@ -126,6 +216,8 @@ export const useContacts = () => {
     contacts, // Export để có thể check empty state
     filteredContacts,
     loading,
+    importLoading,
+    importError,
     searchText,
     setSearchText,
     showFavoritesOnly,
@@ -135,6 +227,7 @@ export const useContacts = () => {
     update,
     remove,
     toggle,
+    importFromAPI,
   };
 };
 
