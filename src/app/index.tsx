@@ -1,11 +1,25 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Text, View, FlatList, Modal, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, ScrollView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getAllContacts, Contact, addContact, toggleFavorite, updateContact, deleteContact } from "../db";
+import { Contact } from "../db";
+import { useContacts } from "../hooks/useContacts";
 
 export default function Page() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    contacts,
+    filteredContacts,
+    loading,
+    searchText,
+    setSearchText,
+    showFavoritesOnly,
+    setShowFavoritesOnly,
+    load,
+    insert,
+    update,
+    remove,
+    toggle,
+  } = useContacts();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
@@ -13,45 +27,10 @@ export default function Page() {
   const [editFormData, setEditFormData] = useState({ name: "", phone: "", email: "" });
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const [editErrors, setEditErrors] = useState<{ name?: string; email?: string }>({});
-  const [searchText, setSearchText] = useState("");
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-
-  const loadContacts = useCallback(async () => {
-    try {
-      const data = await getAllContacts();
-      setContacts(data);
-    } catch (error) {
-      console.error("Error loading contacts:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
-    loadContacts();
-  }, [loadContacts]);
-
-  // Filter contacts dựa trên search text và favorite filter
-  const filteredContacts = useMemo(() => {
-    let filtered = contacts;
-
-    // Filter theo favorite nếu bật
-    if (showFavoritesOnly) {
-      filtered = filtered.filter((contact) => contact.favorite === 1);
-    }
-
-    // Filter theo search text (name hoặc phone)
-    if (searchText.trim()) {
-      const searchLower = searchText.toLowerCase().trim();
-      filtered = filtered.filter((contact) => {
-        const nameMatch = contact.name.toLowerCase().includes(searchLower);
-        const phoneMatch = contact.phone?.toLowerCase().includes(searchLower) || false;
-        return nameMatch || phoneMatch;
-      });
-    }
-
-    return filtered;
-  }, [contacts, searchText, showFavoritesOnly]);
+    load();
+  }, [load]);
 
 
   const validateForm = (data: { name: string; email: string }, isEdit: boolean = false): boolean => {
@@ -75,13 +54,13 @@ export default function Page() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!validateForm(formData, false)) {
       return;
     }
 
     try {
-      const result = await addContact(
+      const result = await insert(
         formData.name.trim(),
         formData.phone.trim() || undefined,
         formData.email.trim() || undefined
@@ -91,7 +70,6 @@ export default function Page() {
         setModalVisible(false);
         setFormData({ name: "", phone: "", email: "" });
         setErrors({});
-        await loadContacts(); // Refresh danh sách
       } else {
         Alert.alert("Lỗi", "Không thể thêm liên hệ. Vui lòng thử lại.");
       }
@@ -99,9 +77,9 @@ export default function Page() {
       console.error("Error adding contact:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi thêm liên hệ.");
     }
-  };
+  }, [formData, insert]);
 
-  const handleEditSubmit = async () => {
+  const handleEditSubmit = useCallback(async () => {
     if (!editingContact) return;
     
     if (!validateForm(editFormData, true)) {
@@ -109,7 +87,7 @@ export default function Page() {
     }
 
     try {
-      const success = await updateContact(
+      const success = await update(
         editingContact.id,
         editFormData.name.trim(),
         editFormData.phone.trim() || undefined,
@@ -121,7 +99,6 @@ export default function Page() {
         setEditingContact(null);
         setEditFormData({ name: "", phone: "", email: "" });
         setEditErrors({});
-        await loadContacts(); // Refresh danh sách
       } else {
         Alert.alert("Lỗi", "Không thể cập nhật liên hệ. Vui lòng thử lại.");
       }
@@ -129,9 +106,9 @@ export default function Page() {
       console.error("Error updating contact:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi cập nhật liên hệ.");
     }
-  };
+  }, [editingContact, editFormData, update]);
 
-  const handleOpenEdit = (contact: Contact) => {
+  const handleOpenEdit = useCallback((contact: Contact) => {
     setEditingContact(contact);
     setEditFormData({
       name: contact.name,
@@ -140,7 +117,7 @@ export default function Page() {
     });
     setEditErrors({});
     setEditModalVisible(true);
-  };
+  }, []);
 
   const handleCloseEditModal = () => {
     setEditModalVisible(false);
@@ -155,21 +132,19 @@ export default function Page() {
     setErrors({});
   };
 
-  const handleToggleFavorite = async (id: number) => {
+  const handleToggleFavorite = useCallback(async (id: number) => {
     try {
-      const success = await toggleFavorite(id);
-      if (success) {
-        await loadContacts(); // Refresh danh sách
-      } else {
+      const success = await toggle(id);
+      if (!success) {
         Alert.alert("Lỗi", "Không thể cập nhật yêu thích. Vui lòng thử lại.");
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi cập nhật yêu thích.");
     }
-  };
+  }, [toggle]);
 
-  const handleDeleteContact = (contact: Contact) => {
+  const handleDeleteContact = useCallback((contact: Contact) => {
     Alert.alert(
       "Xác nhận xóa",
       `Bạn có chắc chắn muốn xóa liên hệ "${contact.name}"?`,
@@ -183,10 +158,8 @@ export default function Page() {
           style: "destructive",
           onPress: async () => {
             try {
-              const success = await deleteContact(contact.id);
-              if (success) {
-                await loadContacts(); // Refresh danh sách
-              } else {
+              const success = await remove(contact.id);
+              if (!success) {
                 Alert.alert("Lỗi", "Không thể xóa liên hệ. Vui lòng thử lại.");
               }
             } catch (error) {
@@ -197,59 +170,69 @@ export default function Page() {
         },
       ]
     );
-  };
-
-  const handleOpenEditCallback = useCallback((contact: Contact) => {
-    handleOpenEdit(contact);
-  }, []);
-
-  const handleDeleteContactCallback = useCallback((contact: Contact) => {
-    handleDeleteContact(contact);
-  }, []);
-
-  const handleToggleFavoriteCallback = useCallback((id: number) => {
-    handleToggleFavorite(id);
-  }, []);
+  }, [remove]);
 
   const renderContactItem = useCallback(({ item }: { item: Contact }) => {
+    const isFavorite = item.favorite === 1;
     return (
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
-        <View className="flex-1">
-          <Text className="text-lg font-semibold text-gray-900">
-            {item.name}
-          </Text>
-          {item.phone && (
-            <Text className="text-sm text-gray-600 mt-1">{item.phone}</Text>
+      <View
+        className={`flex-row items-center justify-between px-4 py-3 border-b ${
+          isFavorite
+            ? "bg-yellow-50 border-yellow-200"
+            : "bg-white border-gray-200"
+        }`}
+      >
+        <View className="flex-1 flex-row items-center">
+          {isFavorite && (
+            <Text className="text-yellow-500 text-xl mr-2">★</Text>
           )}
+          <View className="flex-1">
+            <Text
+              className={`text-lg font-semibold ${
+                isFavorite ? "text-yellow-900" : "text-gray-900"
+              }`}
+            >
+              {item.name}
+            </Text>
+            {item.phone && (
+              <Text
+                className={`text-sm mt-1 ${
+                  isFavorite ? "text-yellow-700" : "text-gray-600"
+                }`}
+              >
+                {item.phone}
+              </Text>
+            )}
+          </View>
         </View>
         <View className="flex-row items-center">
           <TouchableOpacity
-            onPress={() => handleOpenEditCallback(item)}
+            onPress={() => handleOpenEdit(item)}
             className="mr-2 px-3 py-1 bg-blue-500 rounded"
             activeOpacity={0.7}
           >
             <Text className="text-white text-sm font-medium">Sửa</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => handleDeleteContactCallback(item)}
+            onPress={() => handleDeleteContact(item)}
             className="mr-2 px-3 py-1 bg-red-500 rounded"
             activeOpacity={0.7}
           >
             <Text className="text-white text-sm font-medium">Xóa</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => handleToggleFavoriteCallback(item.id)}
+            onPress={() => handleToggleFavorite(item.id)}
             className="ml-2 p-2"
             activeOpacity={0.7}
           >
             <Text className="text-yellow-500 text-2xl">
-              {item.favorite === 1 ? "★" : "☆"}
+              {isFavorite ? "★" : "☆"}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
     );
-  }, [handleOpenEditCallback, handleDeleteContactCallback, handleToggleFavoriteCallback]);
+  }, [handleOpenEdit, handleDeleteContact, handleToggleFavorite]);
 
   return (
     <View className="flex flex-1 bg-white">
@@ -303,12 +286,29 @@ export default function Page() {
             <Text className="text-gray-500">Đang tải...</Text>
           </View>
         ) : filteredContacts.length === 0 ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500">
+          <View className="flex-1 items-center justify-center px-6">
+            <Text className="text-6xl mb-4">📇</Text>
+            <Text className="text-xl font-semibold text-gray-800 mb-2 text-center">
               {contacts.length === 0
-                ? "Chưa có liên hệ nào."
-                : "Không tìm thấy liên hệ nào."}
+                ? "Chưa có liên hệ nào"
+                : "Không tìm thấy liên hệ nào"}
             </Text>
+            <Text className="text-gray-500 text-center mb-4">
+              {contacts.length === 0
+                ? "Nhấn nút + ở trên để thêm liên hệ mới"
+                : "Thử thay đổi từ khóa tìm kiếm hoặc tắt bộ lọc"}
+            </Text>
+            {(searchText.trim() || showFavoritesOnly) && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchText("");
+                  setShowFavoritesOnly(false);
+                }}
+                className="mt-2 px-4 py-2 bg-blue-500 rounded-lg"
+              >
+                <Text className="text-white font-medium">Xóa bộ lọc</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <FlatList
